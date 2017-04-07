@@ -8,6 +8,9 @@ cd build
 cmake ..
 make
 
+cp run_test ../run_test
+cp run_training ../run_training
+
 sudo cp facialauth.so /lib/security/facialauth.so
 
 sudo bash -c 'cat <<EOF > /etc/pam.d/pam_test

@@ -2,3 +2,7 @@ cmake-build-debug/
 build/
 data/
 .idea/
+
+run_test
+run_training
+trained_model.xml
