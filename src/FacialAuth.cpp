@@ -1,3 +1,10 @@
+// =======================================================================
+// pam-facial-auth
+// FacialAuth
+//
+// Created by Devin Conley
+// =======================================================================
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,8 +13,7 @@
 #include <security/pam_modules.h>
 #include <opencv2/opencv.hpp>
 
-// forward declarations
-std::map<std::string, std::string> GetConfig( const std::string & pathFile );
+#include "Util.h"
 
 /* expected hook */
 PAM_EXTERN int pam_sm_setcred( pam_handle_t * pamh, int flags, int argc, const char ** argv )
@@ -32,7 +38,10 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 	}
 
 	// Get config
-	std::map<std::string, std::string> config = GetConfig( "/etc/pam-facial-auth/config" );
+	std::map<std::string, std::string> config;
+	config["imageDir"]    = "/var/lib/motioneye/Camera1"; // defaults
+	config["imageWindow"] = "5";
+	Util::GetConfig( "/etc/pam-facial-auth/config", config );
 
 	// Find recent images of interest
 	printf( "%s, %s\n", config["imageDir"].c_str(), config["imageWindow"].c_str() );
@@ -45,30 +54,4 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 	return PAM_SUCCESS;
 }
 
-std::map<std::string, std::string> GetConfig( const std::string & pathConfig )
-{
-	std::map<std::string, std::string> config;
 
-	// defaults
-	config["imageDir"]    = "/var/lib/motioneye/Camera1";
-	config["imageWindow"] = "5";
-
-	// try to pull config
-	std::istringstream ssFile( pathConfig );
-
-	std::string line;
-	while ( std::getline( ssFile, line ) )
-	{
-		std::istringstream ssLine( line );
-		std::string        key;
-		if ( std::getline( ssLine, key, '=' ) )
-		{
-			std::string value;
-			if ( std::getline( ssLine, value ) )
-			{
-				config[key] = value;
-			}
-		}
-	}
-	return config;
-}

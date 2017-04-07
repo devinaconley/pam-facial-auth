@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/face.hpp>
-#include <dirent.h>
+#include "src/Util.h"
 
 int main( int argc, char ** argv )
 {
@@ -33,43 +33,23 @@ int main( int argc, char ** argv )
 	std::vector<cv::Mat>     images;
 	std::vector<int>         labels;
 
-	DIR           * dirMain;
-	DIR           * dirSub;
-	struct dirent * curr;
+	std::vector<std::string> nullVec;
 
-	dirMain = opendir( pathDir.c_str() );
-	if ( dirMain )
+	Util::WalkDirectory( pathDir, nullVec, usernames );
+
+	for ( size_t i =0; i < usernames.size(); ++i )
 	{
-		// iterate through users
-		curr = readdir( dirMain );
-		while ( curr )
+		std::vector<std::string> files;
+		Util::WalkDirectory( pathDir + "/" + usernames[i], files, nullVec );
+		for ( size_t j = 0; j < files.size(); ++j )
 		{
-			// verify valid subdirectory
-			std::string user = curr->d_name;
-			if ( user.find( "." ) == std::string::npos )
+			cv::Mat temp = cv::imread( pathDir + "/" + usernames[i] + "/" + files[j],
+				CV_LOAD_IMAGE_GRAYSCALE );
+			if ( temp.data )
 			{
-				int label = usernames.size();
-
-				dirSub = opendir( ( pathDir + "/" + user ).c_str() );
-
-				// iterate through images of user
-				curr = readdir( dirSub );
-				while ( curr )
-				{
-					cv::Mat temp = cv::imread( pathDir + "/" + user + "/" + curr->d_name,
-						CV_LOAD_IMAGE_GRAYSCALE );
-					if ( temp.data )
-					{
-						images.push_back( temp );
-						labels.push_back( label );
-					}
-
-					curr = readdir( dirSub );
-				}
-				usernames.push_back( user );
+				images.push_back( temp );
+				labels.push_back( i );
 			}
-
-			curr = readdir( dirMain );
 		}
 	}
 
@@ -100,7 +80,7 @@ int main( int argc, char ** argv )
 	}
 
 	// Do training
-	printf( "Training %s model...", technique.c_str() );
+	printf( "Training %s model...\n", technique.c_str() );
 	fr->train( images, labels );
 
 	// Test?
