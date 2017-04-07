@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# build and install facial authentication module and test app
+
+cd "$(dirname "$0")"
 mkdir build
 cd build
 cmake ..
