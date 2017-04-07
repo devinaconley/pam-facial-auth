@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/face.hpp>
-#include "src/Util.h"
+#include "src/Utils.h"
 
 int main( int argc, char ** argv )
 {

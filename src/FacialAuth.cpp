@@ -13,7 +13,7 @@
 #include <security/pam_modules.h>
 #include <opencv2/opencv.hpp>
 
-#include "Util.h"
+#include "Utils.h"
 
 /* expected hook */
 PAM_EXTERN int pam_sm_setcred( pam_handle_t * pamh, int flags, int argc, const char ** argv )
