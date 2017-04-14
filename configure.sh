@@ -6,10 +6,5 @@
 cd "$(dirname "$0")"
 
 sudo mkdir -p /etc/pam-facial-auth
-sudo cp trained_model.xml /etc/pam-facial-auth/trained_model.xml
-
-# change image source here
-sudo bash -c 'cat <<EOF > /etc/pam-facial-auth/config
-imageDir=/var/lib/motioneye/Camera1
-imageWindow=10
-EOF'
+sudo cp model.xml /etc/pam-facial-auth/model.xml
+sudo cp config /etc/pam-facial-auth/config

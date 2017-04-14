@@ -5,4 +5,5 @@ data/
 
 run_test
 run_training
-trained_model.xml
+model.xml
+config

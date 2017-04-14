@@ -16,7 +16,7 @@ int main( int argc, char ** argv )
 	{
 		printf( "usage: run_training <path to image directory> <facial recognition technique>\n"
 			"--Note: directory should be organized into subdirectories by username\n"
-			"--options: eigen (default), fisher, lbph" );
+			"--options: eigen (default), fisher, lbph\n" );
 		return -1;
 	}
 
@@ -89,8 +89,18 @@ int main( int argc, char ** argv )
 		fr->setLabelInfo( i, usernames[i] );
 	}
 
-	// Write out
-	fr->save( "trained_model.xml" );
+	// Write out model
+	fr->save( "model.xml" );
+
+	// Write default config file
+	FILE * pConfig;
+	pConfig = fopen( "config", "w" );
+	fprintf( pConfig, "imageDir=/var/lib/motioneye/Camera1\n" );
+	fprintf( pConfig, "timeout=10\n" );
+	fprintf( pConfig, "imageHeight=%d\n", images[0].rows );
+	fprintf( pConfig, "imageWidth=%d\n", images[0].cols );
+	fprintf( pConfig, "technique=%s\n", technique.c_str() );
+	fclose( pConfig );
 
 	return 0;
 }

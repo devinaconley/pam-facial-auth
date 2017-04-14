@@ -74,7 +74,7 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 	// Load model
 	cv::Ptr<cv::face::FaceRecognizer> fr;
 	fr = cv::face::createEigenFaceRecognizer( 10 ); // TODO : load correct type of model
-	fr->load( "/etc/pam-facial-auth/trained_model.xml" );
+	fr->load( "/etc/pam-facial-auth/model.xml" );
 
 	for ( std::vector<std::string>::iterator it = imagePaths.begin(); it != imagePaths.end(); ++it )
 	{
