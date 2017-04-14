@@ -37,11 +37,11 @@ int main( int argc, char ** argv )
 
 	Utils::WalkDirectory( pathDir, nullVec, usernames );
 
-	for ( size_t i = 0; i < usernames.size(); ++i )
+	for ( std::size_t i = 0; i < usernames.size(); ++i )
 	{
 		std::vector<std::string> files;
 		Utils::WalkDirectory( pathDir + "/" + usernames[i], files, nullVec );
-		for ( size_t j = 0; j < files.size(); ++j )
+		for ( std::size_t j = 0; j < files.size(); ++j )
 		{
 			cv::Mat temp = cv::imread( pathDir + "/" + usernames[i] + "/" + files[j],
 				CV_LOAD_IMAGE_GRAYSCALE );
@@ -84,7 +84,7 @@ int main( int argc, char ** argv )
 	fr->train( images, labels );
 
 	// Set usernames
-	for ( size_t i = 0; i < usernames.size(); ++i )
+	for ( std::size_t i = 0; i < usernames.size(); ++i )
 	{
 		fr->setLabelInfo( i, usernames[i] );
 	}
@@ -100,7 +100,9 @@ int main( int argc, char ** argv )
 	fprintf( pConfig, "imageHeight=%d\n", images[0].rows );
 	fprintf( pConfig, "imageWidth=%d\n", images[0].cols );
 	fprintf( pConfig, "technique=%s\n", technique.c_str() );
+	fprintf( pConfig, "threshold=%.2f\n", 1000.0 );
 	fclose( pConfig );
 
+	printf( "Success. Config and model files written.\n" );
 	return 0;
 }

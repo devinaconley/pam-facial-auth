@@ -14,6 +14,7 @@
 #include <security/pam_modules.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/face.hpp>
+#include <ctime>
 
 #include "Utils.h"
 
@@ -32,12 +33,13 @@ PAM_EXTERN int pam_sm_acct_mgmt( pam_handle_t * pamh, int flags, int argc, const
 PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, const char ** argv )
 {
 	// First verify we can get username
-	const char * username;
-	int ret = pam_get_user( pamh, &username, "Username: " );
+	const char * user;
+	int ret = pam_get_user( pamh, &user, "Username: " );
 	if ( ret != PAM_SUCCESS )
 	{
 		return ret;
 	}
+	std::string username( user );
 
 	// Get config
 	std::map<std::string, std::string> config;
@@ -47,44 +49,69 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 	Utils::GetConfig( "/etc/pam-facial-auth/config", config );
 
 	// Parse number values
-	size_t height      = std::stoi( config["imageHeight"] );
-	size_t width       = std::stoi( config["imageWidth"] );
-	time_t timeout     = std::stoi( config["timeout"] );
-	size_t imageWindow = std::stoi( config["imageWindow"] );
-
-
-	// Find recent images of interest
-	std::vector<std::string> imagePaths;
-
-	// Assume daily folders named under yyyy-MM-dd
-	std::vector<std::string> dates;
-	std::vector<std::string> nullVec;
-	Utils::WalkDirectory( config["imageDir"], nullVec, dates );
-	std::sort( dates.rbegin(), dates.rend() );
-
-	for ( std::vector<std::string>::iterator itDate = dates.begin();
-		  imagePaths.size() < imageWindow && itDate != dates.end(); ++itDate )
-	{
-		// Assume files named under HH-mm-ss.ext
-		std::vector<std::string> times;
-		Utils::WalkDirectory( config["imageDir"] + "/" + *itDate, times, nullVec );
-		std::sort( times.rbegin(), times.rend() );
-
-		for ( std::vector<std::string>::iterator itTime = times.begin();
-			  imagePaths.size() < imageWindow && itTime != times.end(); ++itTime )
-		{
-			imagePaths.push_back( config["imageDir"] + "/" + *itDate + "/" + *itTime );
-		}
-	}
+	std::size_t height    = std::stoi( config["imageHeight"] );
+	std::size_t width     = std::stoi( config["imageWidth"] );
+	std::time_t timeout   = std::stoi( config["timeout"] );
+	double      threshold = std::stod( config["threshold"] );
 
 	// Load model
 	cv::Ptr<cv::face::FaceRecognizer> fr;
 	fr = cv::face::createEigenFaceRecognizer( 10 ); // TODO : load correct type of model
 	fr->load( "/etc/pam-facial-auth/model.xml" );
 
-	for ( std::vector<std::string>::iterator it = imagePaths.begin(); it != imagePaths.end(); ++it )
+	// Loop control
+	std::time_t start = std::time( NULL );
+	std::string imagePathLast;
+
+	while ( std::time( NULL ) - start < timeout )
 	{
-		cv::Mat im      = cv::imread( *it, CV_LOAD_IMAGE_GRAYSCALE );
+		// Find most recent image
+		std::string imagePath = config["imageDir"];
+		std::string temp;
+
+		// Walk subdirectories
+		std::vector<std::string> dates;
+		std::vector<std::string> nullVec;
+		Utils::WalkDirectory( config["imageDir"], nullVec, dates );
+
+		// Get most recent daily folder, assuming named under yyyy-MM-dd
+		for ( std::vector<std::string>::iterator it = dates.begin(); it != dates.end(); ++it )
+		{
+			if ( *it > temp )
+			{
+				temp = *it;
+			}
+		}
+		imagePath += "/" + temp;
+
+		// Walk image files
+		std::vector<std::string> times;
+		Utils::WalkDirectory( imagePath, times, nullVec );
+
+		temp = "";
+		// Get most recent image, assuming named under HH-mm-ss.ext
+		for ( std::vector<std::string>::iterator it = times.begin(); it != times.end(); ++it )
+		{
+			if ( *it > temp )
+			{
+				temp = *it;
+			}
+		}
+		imagePath += "/" + temp;
+
+		// Check if new image
+		if ( imagePath == imagePathLast )
+		{
+			continue;
+		}
+
+		cv::Mat im      = cv::imread( imagePath, CV_LOAD_IMAGE_GRAYSCALE );
+		if ( !im.size().area() > 0 )
+		{
+			continue;
+		}
+
+		std::cout << imagePath << std::endl;
 
 		// Resize properly
 		cv::Rect roi;
@@ -118,15 +145,17 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 		fr->predict( im, prediction, confidence );
 
 		printf( "Predicted: %s, %d, %s (%f)\n",
-			it->c_str(), prediction, fr->getLabelInfo( prediction ).c_str(), confidence );
+			imagePath.c_str(), prediction, fr->getLabelInfo( prediction ).c_str(), confidence );
+
+		if ( confidence < threshold && fr->getLabelInfo( prediction ) == username )
+		{
+			return PAM_SUCCESS;
+		}
+		imagePathLast = imagePath;
 	}
 
-	if ( cv::CAP_MODE_RGB != cv::CAP_MODE_RGB )
-	{
-		return PAM_AUTH_ERR;
-	}
-	printf( "rgb equals rgb... \n" );
-	return PAM_SUCCESS;
+	printf( "Timeout on face authentication... \n" );
+	return PAM_AUTH_ERR;
 }
 
 
