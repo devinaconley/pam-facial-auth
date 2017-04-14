@@ -1,17 +1,17 @@
 // =======================================================================
 // pam-facial-auth
-// Util
+// Utils
 //
 // Created by Devin Conley
 // =======================================================================
 
-#ifndef PAM_FACIAL_AUTH_UTIL_H
-#define PAM_FACIAL_AUTH_UTIL_H
+#ifndef PAM_FACIAL_AUTH_UTILS_H
+#define PAM_FACIAL_AUTH_UTILS_H
 
 #include <dirent.h>
 #include <fstream>
 
-class Util
+class Utils
 {
 public:
 	static void GetConfig( const std::string & pathConfig, std::map<std::string, std::string> & config )
@@ -83,4 +83,4 @@ public:
 };
 
 
-#endif //PAM_FACIAL_AUTH_UTIL_H
+#endif //PAM_FACIAL_AUTH_UTILS_H

@@ -3,7 +3,7 @@
 # build and install facial authentication module and test app
 
 cd "$(dirname "$0")"
-mkdir build
+mkdir -p build
 cd build
 cmake ..
 make

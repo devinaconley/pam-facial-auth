@@ -35,12 +35,12 @@ int main( int argc, char ** argv )
 
 	std::vector<std::string> nullVec;
 
-	Util::WalkDirectory( pathDir, nullVec, usernames );
+	Utils::WalkDirectory( pathDir, nullVec, usernames );
 
-	for ( size_t i =0; i < usernames.size(); ++i )
+	for ( size_t i = 0; i < usernames.size(); ++i )
 	{
 		std::vector<std::string> files;
-		Util::WalkDirectory( pathDir + "/" + usernames[i], files, nullVec );
+		Utils::WalkDirectory( pathDir + "/" + usernames[i], files, nullVec );
 		for ( size_t j = 0; j < files.size(); ++j )
 		{
 			cv::Mat temp = cv::imread( pathDir + "/" + usernames[i] + "/" + files[j],
@@ -82,15 +82,6 @@ int main( int argc, char ** argv )
 	// Do training
 	printf( "Training %s model...\n", technique.c_str() );
 	fr->train( images, labels );
-
-	// Test?
-	for ( size_t i = 0; i < images.size(); ++i )
-	{
-		double confidence = 0.0;
-		int    prediction = -1;
-		fr->predict( images[i], prediction, confidence );
-		printf( "Predicted: %d (%f), actual: %d\n", prediction, confidence, labels[i] );
-	}
 
 	// Set usernames
 	for ( size_t i = 0; i < usernames.size(); ++i )
