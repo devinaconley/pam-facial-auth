@@ -13,10 +13,10 @@
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/face.hpp>
 #include <ctime>
 
 #include "Utils.h"
+#include "FaceRecWrapper.h"
 
 /* expected hook */
 PAM_EXTERN int pam_sm_setcred( pam_handle_t * pamh, int flags, int argc, const char ** argv )
@@ -43,25 +43,22 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 
 	// Get config
 	std::map<std::string, std::string> config;
-	config["imageDir"]    = "/var/lib/motioneye/Camera1"; // defaults
-	config["imageWindow"] = "5";
 
 	Utils::GetConfig( "/etc/pam-facial-auth/config", config );
 
 	// Parse number values
-	std::size_t height    = std::stoi( config["imageHeight"] );
-	std::size_t width     = std::stoi( config["imageWidth"] );
 	std::time_t timeout   = std::stoi( config["timeout"] );
 	double      threshold = std::stod( config["threshold"] );
 
 	// Load model
-	cv::Ptr<cv::face::FaceRecognizer> fr;
-	fr = cv::face::createEigenFaceRecognizer( 10 ); // TODO : load correct type of model
-	fr->load( "/etc/pam-facial-auth/model.xml" );
+	FaceRecWrapper frw = FaceRecWrapper();
+	frw.Load( "/etc/pam-facial-auth/model" );
+
 
 	// Loop control
 	std::time_t start = std::time( NULL );
 	std::string imagePathLast;
+	printf( "Starting facial recognition for %s...\n", username.c_str() );
 
 	while ( std::time( NULL ) - start < timeout )
 	{
@@ -105,7 +102,7 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 			continue;
 		}
 
-		cv::Mat im      = cv::imread( imagePath, CV_LOAD_IMAGE_GRAYSCALE );
+		cv::Mat im = cv::imread( imagePath, CV_LOAD_IMAGE_GRAYSCALE );
 		if ( !im.size().area() > 0 )
 		{
 			continue;
@@ -113,41 +110,15 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 
 		std::cout << imagePath << std::endl;
 
-		// Resize properly
-		cv::Rect roi;
-		double   ratioH = double( im.rows ) / double( height );
-		double   ratioW = double( im.cols ) / double( width );
-		// First crop to get to the same aspect ratio (crop in the larger relative dimension)
-		if ( ratioH < ratioW )
-		{
-			roi.height = im.rows;
-			roi.width  = double( im.rows ) * ( double( width ) / double( height ) );
-			roi.y      = 0.0;
-			roi.x      = double( im.cols - roi.width ) / 2.0;
-		}
-		else
-		{
-			roi.width  = im.cols;
-			roi.height = double( im.cols ) * ( double( height ) / double( width ) );
-			roi.x      = 0.0;
-			roi.y      = double( im.rows - roi.height ) / 2.0;
-		}
-		// Then do crop and resize
-		cv::Size sz;
-		sz.height = height;
-		sz.width  = width;
-		im = im( roi );
-		cv::resize( im, im, sz );
-
 		// Do prediction
 		double confidence = 0.0;
 		int    prediction = -1;
-		fr->predict( im, prediction, confidence );
+		frw.Predict( im, prediction, confidence );
 
 		printf( "Predicted: %s, %d, %s (%f)\n",
-			imagePath.c_str(), prediction, fr->getLabelInfo( prediction ).c_str(), confidence );
+			imagePath.c_str(), prediction, frw.GetLabelName( prediction ).c_str(), confidence );
 
-		if ( confidence < threshold && fr->getLabelInfo( prediction ) == username )
+		if ( confidence < threshold && frw.GetLabelName( prediction ) == username )
 		{
 			return PAM_SUCCESS;
 		}

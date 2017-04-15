@@ -7,8 +7,8 @@
 
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/face.hpp>
 #include "src/Utils.h"
+#include "src/FaceRecWrapper.h"
 
 int main( int argc, char ** argv )
 {
@@ -60,46 +60,23 @@ int main( int argc, char ** argv )
 	}
 
 	// Select technique
-	cv::Ptr<cv::face::FaceRecognizer> fr;
-
-	if ( technique == "eigen" )
-	{
-		fr = cv::face::createEigenFaceRecognizer( 10 );
-	}
-	else if ( technique == "fisher" )
-	{
-		fr = cv::face::createFisherFaceRecognizer();
-	}
-	else if ( technique == "lbph" )
-	{
-		fr = cv::face::createLBPHFaceRecognizer();
-	}
-	else
-	{
-		printf( "Invalid technique: %s", technique.c_str() );
-	}
+	FaceRecWrapper frw( technique );
 
 	// Do training
 	printf( "Training %s model...\n", technique.c_str() );
-	fr->train( images, labels );
+	frw.Train( images, labels );
 
 	// Set usernames
-	for ( std::size_t i = 0; i < usernames.size(); ++i )
-	{
-		fr->setLabelInfo( i, usernames[i] );
-	}
+	frw.SetLabelNames( usernames );
 
 	// Write out model
-	fr->save( "model.xml" );
+	frw.Save( "model" );
 
 	// Write default config file
 	FILE * pConfig;
 	pConfig = fopen( "config", "w" );
 	fprintf( pConfig, "imageDir=/var/lib/motioneye/Camera1\n" );
 	fprintf( pConfig, "timeout=10\n" );
-	fprintf( pConfig, "imageHeight=%d\n", images[0].rows );
-	fprintf( pConfig, "imageWidth=%d\n", images[0].cols );
-	fprintf( pConfig, "technique=%s\n", technique.c_str() );
 	fprintf( pConfig, "threshold=%.2f\n", 1000.0 );
 	fclose( pConfig );
 
