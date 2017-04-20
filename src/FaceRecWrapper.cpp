@@ -39,30 +39,49 @@ void FaceRecWrapper::Predict( const cv::Mat & im, int & label, double & confiden
 	cv::Rect roi;
 	double   ratioH = double( im.rows ) / double( height );
 	double   ratioW = double( im.cols ) / double( width );
-	// First crop to get to the same aspect ratio (crop in the larger relative dimension)
-	if ( ratioH < ratioW )
-	{
-		roi.height = im.rows;
-		roi.width  = double( im.rows ) * ( double( width ) / double( height ) );
-		roi.y      = 0.0;
-		roi.x      = double( im.cols - roi.width ) / 2.0;
-	}
-	else
-	{
-		roi.width  = im.cols;
-		roi.height = double( im.cols ) * ( double( height ) / double( width ) );
-		roi.x      = 0.0;
-		roi.y      = double( im.rows - roi.height ) / 2.0;
-	}
-	// Then do crop and resize
-	cv::Size sz;
-	sz.height = height;
-	sz.width  = width;
-	cv::Mat imNew = im( roi );
-	cv::resize( imNew, imNew, sz );
 
-	// Do prediction
-	fr->predict( imNew, label, confidence );
+	// Iterate across various scales
+	double       bestConfidence = 10000;
+	int          bestLabel      = -1;
+	for ( double scale          = 0.7; scale <= 1.0; scale += 0.01 )
+	{
+		// First crop to get to the same aspect ratio (crop in the larger relative dimension)
+		if ( ratioH < ratioW )
+		{
+			roi.height = double( im.rows ) * scale;
+			roi.width  = roi.height * ( double( width ) / double( height ) );
+			roi.y      = double( im.rows - roi.height ) / 2.0;
+			roi.x      = double( im.cols - roi.width ) / 2.0;
+		}
+		else
+		{
+			roi.width  = double( im.cols ) * scale;
+			roi.height = roi.width * ( double( height ) / double( width ) );
+			roi.x      = double( im.cols - roi.width ) / 2.0;
+			roi.y      = double( im.rows - roi.height ) / 2.0;
+		}
+		// Then do crop and resize
+		cv::Size sz;
+		sz.height = height;
+		sz.width  = width;
+		cv::Mat imNew = im( roi );
+		cv::resize( imNew, imNew, sz );
+
+		// Do prediction
+		double tempConfidence;
+		int    tempLabel;
+		fr->predict( imNew, tempLabel, tempConfidence );
+
+		if ( tempConfidence > bestConfidence || bestLabel == -1 )
+		{
+			bestConfidence = tempConfidence;
+			bestLabel      = tempLabel;
+		}
+	}
+	// Set best scale as results
+	confidence                  = bestConfidence;
+	label                       = bestLabel;
+
 }
 
 void FaceRecWrapper::Save( const std::string & filename )
