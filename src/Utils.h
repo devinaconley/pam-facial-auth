@@ -70,6 +70,7 @@ public:
 				if ( dirSub )
 				{
 					subs.push_back( curr->d_name );
+					closedir( dirSub );
 				}
 				else
 				{
@@ -77,6 +78,7 @@ public:
 				}
 				curr = readdir( dirMain );
 			}
+			closedir( dirMain );
 		}
 
 	}
