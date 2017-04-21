@@ -5,6 +5,5 @@ data/
 
 run_test
 run_training
-model
-model-raw.xml
+model*
 config

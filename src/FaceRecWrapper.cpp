@@ -8,15 +8,14 @@
 #include "FaceRecWrapper.h"
 
 FaceRecWrapper::FaceRecWrapper() :
-	height( 0 ),
-	width( 0 )
+	sizeFace( 96 )
 {}
 
-FaceRecWrapper::FaceRecWrapper( const std::string & techniqueName ) :
-	height( 0 ),
-	width( 0 )
+FaceRecWrapper::FaceRecWrapper( const std::string & techniqueName, const std::string & pathCascade ) :
+	sizeFace( 96 )
 {
 	SetTechnique( techniqueName );
+	LoadCascade( pathCascade );
 }
 
 void FaceRecWrapper::Train( const std::vector<cv::Mat> & images, const std::vector<int> & labels )
@@ -27,90 +26,61 @@ void FaceRecWrapper::Train( const std::vector<cv::Mat> & images, const std::vect
 		return;
 	}
 
-	height = images[0].rows;
-	width  = images[0].cols;
+	std::vector<cv::Mat> imagesCropped;
+	std::vector<int>     labelsCropped;
 
-	fr->train( images, labels );
+	for ( size_t i = 0; i < images.size(); ++i )
+	{
+		cv::Mat crop;
+		if ( CropFace( images[i], crop ) )
+		{
+			labelsCropped.push_back( labels[i] );
+			imagesCropped.push_back( crop );
+		}
+	}
+
+	fr->train( imagesCropped, labelsCropped );
 }
 
 void FaceRecWrapper::Predict( const cv::Mat & im, int & label, double & confidence )
 {
-	// Resize properly
-	cv::Rect roi;
-	double   ratioH = double( im.rows ) / double( height );
-	double   ratioW = double( im.cols ) / double( width );
-
-	// Iterate across various scales
-	double       bestConfidence = 10000;
-	int          bestLabel      = -1;
-	for ( double scale          = 0.7; scale <= 1.0; scale += 0.01 )
+	cv::Mat cropped;
+	if ( !CropFace( im, cropped ) )
 	{
-		// First crop to get to the same aspect ratio (crop in the larger relative dimension)
-		if ( ratioH < ratioW )
-		{
-			roi.height = double( im.rows ) * scale;
-			roi.width  = roi.height * ( double( width ) / double( height ) );
-			roi.y      = double( im.rows - roi.height ) / 2.0;
-			roi.x      = double( im.cols - roi.width ) / 2.0;
-		}
-		else
-		{
-			roi.width  = double( im.cols ) * scale;
-			roi.height = roi.width * ( double( height ) / double( width ) );
-			roi.x      = double( im.cols - roi.width ) / 2.0;
-			roi.y      = double( im.rows - roi.height ) / 2.0;
-		}
-		// Then do crop and resize
-		cv::Size sz;
-		sz.height = height;
-		sz.width  = width;
-		cv::Mat imNew = im( roi );
-		cv::resize( imNew, imNew, sz );
-
-		// Do prediction
-		double tempConfidence;
-		int    tempLabel;
-		fr->predict( imNew, tempLabel, tempConfidence );
-
-		if ( tempConfidence > bestConfidence || bestLabel == -1 )
-		{
-			bestConfidence = tempConfidence;
-			bestLabel      = tempLabel;
-		}
+		label      = -1;
+		confidence = 10000;
+		return;
 	}
-	// Set best scale as results
-	confidence                  = bestConfidence;
-	label                       = bestLabel;
 
+	fr->predict( cropped, label, confidence );
 }
 
-void FaceRecWrapper::Save( const std::string & filename )
+void FaceRecWrapper::Save( const std::string & path )
 {
-	std::string rawModelFile = filename + "-raw.xml";
-
 	// Write additional wrapper info
 	FILE * pModel;
-	pModel = fopen( filename.c_str(), "w" );
+	pModel = fopen( path.c_str(), "w" );
 	fprintf( pModel, "technique=%s\n", technique.c_str() );
-	fprintf( pModel, "imageHeight=%d\n", (int) height );
-	fprintf( pModel, "imageWidth=%d\n", (int) width );
-	fprintf( pModel, "rawModelFile=%s\n", rawModelFile.c_str() ); // point at raw
+	fprintf( pModel, "sizeFace=%d\n", (int) sizeFace );
 	fclose( pModel );
 
-	// Save actual model
-	fr->save( rawModelFile );
+	// Save actual model and classifier
+	fr->save( path + "-facerec.xml" );
+	std::ifstream orig( pathCascade, std::ios::binary );
+	std::ofstream cpy( path + "-cascade.xml", std::ios::binary );
+	cpy << orig.rdbuf();
 }
 
-void FaceRecWrapper::Load( const std::string & filename )
+void FaceRecWrapper::Load( const std::string & path )
 {
 	std::map<std::string, std::string> model;
-	Utils::GetConfig( filename, model );
+	Utils::GetConfig( path, model );
 
-	height = std::stoi( model["imageHeight"] );
-	width  = std::stoi( model["imageWidth"] );
+	sizeFace = std::stoi( model["sizeFace"] );
 	SetTechnique( model["technique"] );
 
-	fr->load( filename + "-raw.xml" );
+	LoadCascade( path + "-cascade.xml" );
+	fr->load( path + "-facerec.xml" );
 }
 
 void FaceRecWrapper::SetLabelNames( const std::vector<std::string> & names )
@@ -149,5 +119,35 @@ bool FaceRecWrapper::SetTechnique( const std::string & t )
 	}
 
 	technique = t;
+	return true;
+}
+
+bool FaceRecWrapper::LoadCascade( const std::string & filepath )
+{
+	pathCascade = filepath;
+
+	// Set up face detector
+	if ( !cascade.load( pathCascade ) )
+	{
+		printf( "Could not load haar cascade classifier.\n" );
+		return false;
+	}
+	return true;
+}
+
+bool FaceRecWrapper::CropFace( const cv::Mat & image, cv::Mat & cropped )
+{
+	// Detect face
+	std::vector<cv::Rect> faces;
+	cascade.detectMultiScale( image, faces, 1.05, 8, 0 | CV_HAAR_SCALE_IMAGE, cv::Size( 40, 40 ) );
+	if ( !faces.size() )
+	{
+		return false;
+	}
+
+	// Crop and resize
+	cropped = image( faces[0] );
+	cv::resize( cropped, cropped, cv::Size( sizeFace, sizeFace ) );
+
 	return true;
 }

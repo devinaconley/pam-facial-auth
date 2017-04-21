@@ -60,7 +60,7 @@ int main( int argc, char ** argv )
 	}
 
 	// Select technique
-	FaceRecWrapper frw( technique );
+	FaceRecWrapper frw( technique, "etc/haarcascade_frontalface_default.xml" );
 
 	// Do training
 	printf( "Training %s model...\n", technique.c_str() );
