@@ -73,6 +73,7 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 		if ( imCapture ) // Take image actively
 		{
 			vc.read( im );
+			cv::cvtColor( im, im, CV_BGR2GRAY );
 		}
 		else // Check existing directory for stream of images
 		{
