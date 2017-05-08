@@ -12,20 +12,28 @@
 
 int main( int argc, char ** argv )
 {
-	if ( argc != 2 && argc != 3 )
+	if ( argc < 2 || 4 < argc )
 	{
-		printf( "usage: run_training <path to image directory> <facial recognition technique>\n"
+		printf( "usage: run_training <data_dir> [<technique> <haar_cascade>]\n"
 			"--Note: directory should be organized into subdirectories by username\n"
-			"--options: eigen (default), fisher, lbph\n" );
+			"--technique options: eigen (default), fisher, lbph\n"
+			"--default face detector: etc/haarcascade_frontalface_default.xml\n" );
+
 		return -1;
 	}
 
 	std::string pathDir   = argv[1];
 	std::string technique = "eigen";
+	std::string pathHaar  = "etc/haarcascade_frontalface_default.xml";
 
 	if ( argc == 3 )
 	{
 		technique = argv[2];
+	}
+	else if ( argc == 4 )
+	{
+		technique = argv[2];
+		pathHaar  = argv[3];
 	}
 
 	// Collect all files in specified directory
@@ -60,7 +68,7 @@ int main( int argc, char ** argv )
 	}
 
 	// Select technique
-	FaceRecWrapper frw( technique, "etc/haarcascade_frontalface_default.xml" );
+	FaceRecWrapper frw( technique, pathHaar );
 
 	// Do training
 	printf( "Training %s model...\n", technique.c_str() );
@@ -75,6 +83,7 @@ int main( int argc, char ** argv )
 	// Write default config file
 	FILE * pConfig;
 	pConfig = fopen( "config", "w" );
+	fprintf( pConfig, "imageCapture=true\n" );
 	fprintf( pConfig, "imageDir=/var/lib/motioneye/Camera1\n" );
 	fprintf( pConfig, "timeout=10\n" );
 	fprintf( pConfig, "threshold=%.2f\n", 1000.0 );

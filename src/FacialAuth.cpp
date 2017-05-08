@@ -46,83 +46,96 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t * pamh, int flags, int argc, co
 
 	Utils::GetConfig( "/etc/pam-facial-auth/config", config );
 
-	// Parse number values
+	// Parse non-string values
 	std::time_t timeout   = std::stoi( config["timeout"] );
 	double      threshold = std::stod( config["threshold"] );
+	bool        imCapture = config["imageCapture"] == "true";
 
 	// Load model
 	FaceRecWrapper frw = FaceRecWrapper();
 	frw.Load( "/etc/pam-facial-auth/model" );
 
-
-	// Loop control
-	std::time_t start = std::time( NULL );
-	std::string imagePathLast;
+	// Setup / loop control
+	std::time_t      start = std::time( NULL );
+	std::string      imagePathLast;
+	cv::VideoCapture vc;
+	if ( imCapture && !vc.open( 0 ) )
+	{
+		printf( "Could not open camera.\n" );
+		return PAM_AUTH_ERR;
+	}
 	printf( "Starting facial recognition for %s...\n", username.c_str() );
 
 	while ( std::time( NULL ) - start < timeout )
 	{
-		// Find most recent image
-		std::string imagePath = config["imageDir"];
-		std::string temp;
+		cv::Mat im;
 
-		// Walk subdirectories
-		std::vector<std::string> dates;
-		std::vector<std::string> nullVec;
-		Utils::WalkDirectory( config["imageDir"], nullVec, dates );
-
-		// Get most recent daily folder, assuming named under yyyy-MM-dd
-		for ( std::vector<std::string>::iterator it = dates.begin(); it != dates.end(); ++it )
+		if ( imCapture ) // Take image actively
 		{
-			if ( *it > temp )
+			vc.read( im );
+		}
+		else // Check existing directory for stream of images
+		{
+			// Find most recent image
+			std::string imagePath = config["imageDir"];
+			std::string temp;
+
+			// Walk subdirectories
+			std::vector<std::string> dates;
+			std::vector<std::string> nullVec;
+			Utils::WalkDirectory( config["imageDir"], nullVec, dates );
+
+			// Get most recent daily folder, assuming named under yyyy-MM-dd
+			for ( std::vector<std::string>::iterator it = dates.begin(); it != dates.end(); ++it )
 			{
-				temp = *it;
+				if ( *it > temp )
+				{
+					temp = *it;
+				}
 			}
-		}
-		imagePath += "/" + temp;
+			imagePath += "/" + temp;
 
-		// Walk image files
-		std::vector<std::string> times;
-		Utils::WalkDirectory( imagePath, times, nullVec );
+			// Walk image files
+			std::vector<std::string> times;
+			Utils::WalkDirectory( imagePath, times, nullVec );
 
-		temp = "";
-		// Get most recent image, assuming named under HH-mm-ss.ext
-		for ( std::vector<std::string>::iterator it = times.begin(); it != times.end(); ++it )
-		{
-			if ( *it > temp )
+			temp = "";
+			// Get most recent image, assuming named under HH-mm-ss.ext
+			for ( std::vector<std::string>::iterator it = times.begin(); it != times.end(); ++it )
 			{
-				temp = *it;
+				if ( *it > temp )
+				{
+					temp = *it;
+				}
 			}
-		}
-		imagePath += "/" + temp;
+			imagePath += "/" + temp;
 
-		// Check if new image
-		if ( imagePath == imagePathLast )
-		{
-			continue;
-		}
+			// Check if new image
+			if ( imagePath == imagePathLast )
+			{
+				continue;
+			}
+			imagePathLast = imagePath;
 
-		cv::Mat im = cv::imread( imagePath, CV_LOAD_IMAGE_GRAYSCALE );
+			im = cv::imread( imagePath, CV_LOAD_IMAGE_GRAYSCALE );
+		}
 		if ( !im.size().area() > 0 )
 		{
 			continue;
 		}
-
-		std::cout << imagePath << std::endl;
 
 		// Do prediction
 		double confidence = 0.0;
 		int    prediction = -1;
 		frw.Predict( im, prediction, confidence );
 
-		printf( "Predicted: %s, %d, %s (%f)\n",
-			imagePath.c_str(), prediction, frw.GetLabelName( prediction ).c_str(), confidence );
+		printf( "Predicted: %d, %s (%f)\n",
+			prediction, frw.GetLabelName( prediction ).c_str(), confidence );
 
 		if ( confidence < threshold && frw.GetLabelName( prediction ) == username )
 		{
 			return PAM_SUCCESS;
 		}
-		imagePathLast = imagePath;
 	}
 
 	printf( "Timeout on face authentication... \n" );
