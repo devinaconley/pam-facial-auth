@@ -26,7 +26,7 @@ chmod +x setup.sh
 ```
 Train facial recognition model
 ```
-./run_training [data_dir] [algorithm (optional)]
+./run_training [data_dir] [algorithm (optional) haar_cascade(optional)]
 ```
 Where the data directory is expected to be of the following structure
 ```
@@ -39,13 +39,22 @@ data_dir/
 -- username2/
 ...
 ```
+Configure facial auth settings in *config*. Setting imageCapture to
+false will mean the module passively listens for a stream of images being
+written to imageDir (for example by motionEye -
+https://github.com/ccrisan/motioneye/wiki)
+```
+imageCapture=true
+imageDir=/var/lib/motioneye/Camera1
+timeout=10
+threshold=1000.00
+```
 Install the config and model files to *etc/pam-facial-auth/*
 ```
 chmod +x configure.sh
 ./configure.sh
 ```
-Note that the default configuration expects a stream of images being
-written by motionEye (https://github.com/ccrisan/motioneye/wiki)
+
 
 Run test application
 ```
